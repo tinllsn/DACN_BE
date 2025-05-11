@@ -19,6 +19,14 @@ import java.io.File;
 import java.nio.file.*;
 import java.util.List;
 
+
+import org.springframework.web.client.RestTemplate;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import java.util.HashMap;
+import java.util.Map;
+
+
 @RestController
 @RequestMapping("classifications")
 public class ClassificationController {
@@ -44,7 +52,61 @@ public class ClassificationController {
             String filename = System.currentTimeMillis() + "_" + StringUtils.cleanPath(file.getOriginalFilename());
             Path filepath = Paths.get(UPLOAD_DIR, filename);
             Files.copy(file.getInputStream(), filepath, StandardCopyOption.REPLACE_EXISTING);
+// Gọi flask
+            // Gửi ảnh đến model AI (Flask)
+            RestTemplate restTemplate = new RestTemplate();
+//            http://127.0.0.1:5000/detect
+            String modelApiUrl = "http://127.0.0.1:5000/predict";
+            String absolutePath = new File(UPLOAD_DIR, filename).getAbsolutePath();
+            Map<String, String> payload = new HashMap<>();
+            payload.put("imagePath", absolutePath);
 
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Content-Type", "application/json");
+
+            HttpEntity<Map<String, String>> request = new HttpEntity<>(payload, headers);
+
+            ResponseEntity<Map> response = restTemplate.postForEntity(modelApiUrl, request, Map.class);
+
+// Xử lý kết quả từ AI
+//            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+//                List<Map<String, Object>> preds = (List<Map<String, Object>>) response.getBody().get("predictions");
+//                if (!preds.isEmpty()) {
+//                    Map<String, Object> pred = preds.get(0); // lấy kết quả đầu tiên
+//                    wasteType = (String) pred.get("wasteType");
+//                    confidence = ((Number) pred.get("confidence")).floatValue();
+//                }
+//            }
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                List<Map<String, Object>> preds = (List<Map<String, Object>>) response.getBody().get("predictions");
+                if (!preds.isEmpty()) {
+                    // Tìm prediction có confidence lớn nhất
+                    Map<String, Object> bestPred = preds.stream()
+                            .max((a, b) -> Float.compare(
+                                    ((Number) a.get("confidence")).floatValue(),
+                                    ((Number) b.get("confidence")).floatValue()
+                            ))
+                            .orElse(preds.get(0));
+
+                    String rawType = ((String) bestPred.get("wasteType")).toLowerCase();
+                    confidence = ((Number) bestPred.get("confidence")).floatValue();
+
+                    // Phân nhóm rác dựa vào loại
+                    if (List.of("metal", "plastic", "cardboard").contains(rawType)) {
+                        wasteType = "Recyclable";
+                    } else if (List.of("paper", "random trash", "glass").contains(rawType)) {
+                        wasteType = "Inorganic";
+                    } else if ("organics".equals(rawType)) {
+                        wasteType = "Organic";
+                    } else {
+                        wasteType = "Unknown";
+                    }
+                }
+            }
+
+
+//
             // Tạo đối tượng Classification
             Classification classification = new Classification();
             classification.setUserId(userId);
