@@ -6,5 +6,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 
 public interface ClassificationRepository extends JpaRepository<Classification, Integer> {
-    List<Classification> findByUserId(int userId);
+   List <Classification> findByUserId(Integer userId);
 }

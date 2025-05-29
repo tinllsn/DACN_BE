@@ -17,6 +17,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
 import java.nio.file.*;
+import java.util.Base64;
 import java.util.List;
 
 
@@ -25,6 +26,7 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 
 @RestController
@@ -68,15 +70,7 @@ public class ClassificationController {
 
             ResponseEntity<Map> response = restTemplate.postForEntity(modelApiUrl, request, Map.class);
 
-// Xử lý kết quả từ AI
-//            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-//                List<Map<String, Object>> preds = (List<Map<String, Object>>) response.getBody().get("predictions");
-//                if (!preds.isEmpty()) {
-//                    Map<String, Object> pred = preds.get(0); // lấy kết quả đầu tiên
-//                    wasteType = (String) pred.get("wasteType");
-//                    confidence = ((Number) pred.get("confidence")).floatValue();
-//                }
-//            }
+
 
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 List<Map<String, Object>> preds = (List<Map<String, Object>>) response.getBody().get("predictions");
@@ -116,23 +110,52 @@ public class ClassificationController {
             classification.setSuggestion(suggestion);
 
             // Lưu vào DB
-            Classification saved = classificationService.save(classification);
+            ClassificationResponse saved = classificationService.save(classification);
             return ResponseEntity.ok(saved);
-
         } catch (Exception e) {
             return ResponseEntity.status(500).body("Upload failed: " + e.getMessage());
         }
 
     }
+
+    @PostMapping("image")
+    public ResponseEntity<List<Map<String, Object>>> getImage(@RequestBody ClassificationRequest request) {
+        List<ClassificationResponse> responses = classificationService.getImage(request);
+
+        List<Map<String, Object>> result = responses.stream().map(response -> {
+            Map<String, Object> responseData = new HashMap<>();
+            responseData.put("id", response.getId());
+            responseData.put("userId", response.getUserId());
+            responseData.put("wasteType", response.getWasteType());
+            responseData.put("confidence", response.getConfidence());
+            responseData.put("suggestion", response.getSuggestion());
+
+            try {
+                // Read the image file
+                Path filepath = Paths.get(response.getImageUrl());
+                byte[] imageBytes = Files.readAllBytes(filepath);
+
+                // Convert to Base64
+                String base64Image = Base64.getEncoder().encodeToString(imageBytes);
+                responseData.put("image", base64Image);
+            } catch (Exception e) {
+                responseData.put("image", "Error reading image: " + e.getMessage());
+            }
+
+            return responseData;
+        }).collect(Collectors.toList());
+
+        return ResponseEntity.ok(result.reversed());
+    }
+
+    @DeleteMapping("delete/{id}")
+    public ResponseEntity<String> deleteImage(@PathVariable Integer id) {
+        if (classificationService.deleteItem(id)){
+            return new ResponseEntity<>(" deleted successfully", HttpStatus.OK);
+        }
+        else
+            return new ResponseEntity<>("not found or could not be deleted", HttpStatus.NOT_FOUND);
+    }
+
+
 }
-
-//    public ResponseEntity<ClassificationResponse> createClassification(@RequestBody ClassificationRequest request) {
-//        ClassificationResponse response = classificationService.createClassification(request);
-//        return new ResponseEntity<>(response, HttpStatus.CREATED);
-//    }
-
-//    @GetMapping("user/{userId}")
-//    public ResponseEntity<List<ClassificationResponse>> getClassificationsByUserId(@PathVariable int userId) {
-//        List<ClassificationResponse> responses = classificationService.getClassificationsByUserId(userId);
-//        return new ResponseEntity<>(responses, HttpStatus.OK);
-//    }

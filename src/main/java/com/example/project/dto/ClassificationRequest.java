@@ -1,14 +1,21 @@
 package com.example.project.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 @Data
+@Getter
+@Setter
 public class ClassificationRequest {
-    private int userId;
+    @JsonProperty("userId")
+    private Integer userId;
+    @JsonProperty("iamgeUrl")
     private String imageUrl;
+    @JsonProperty("wasteType")
     private String wasteType;
-    private float confidence;
+    private Float confidence;
+    @JsonProperty("suggestion")
     private String suggestion;
-
-    // Getters and Setters
 }

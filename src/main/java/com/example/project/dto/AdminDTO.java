@@ -1,10 +1,9 @@
 package com.example.project.dto;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
 @Data
-public class UserResponse {
+public class AdminDTO {
     private Integer id;
     private String username;
     private String email;

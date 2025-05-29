@@ -25,26 +25,28 @@ public class ClassificationService {
     @Autowired
     private ModelMapper modelMapper;
 
-    public Classification save(Classification classification) {
-        return classificationRepository.save(classification);
+    public ClassificationResponse save(Classification classification) {
+        Classification cls= classificationRepository.save(classification);
+        ClassificationResponse response = modelMapper.map(cls, ClassificationResponse.class);
+        return response ;
     }
 
 
-    public ClassificationResponse createClassification(ClassificationRequest request) {
-        User user = userRepository.findById(request.getUserId())
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        Classification classification = modelMapper.map(request, Classification.class);
-        classification.setUserId(user.getId());
-
-        Classification savedClassification = classificationRepository.save(classification);
-        return modelMapper.map(savedClassification, ClassificationResponse.class);
-    }
-
-    public List<ClassificationResponse> getClassificationsByUserId(int userId) {
-        List<Classification> classifications = classificationRepository.findByUserId(userId);
-        return classifications.stream()
+    public List<ClassificationResponse> getImage(ClassificationRequest request) {
+        List<Classification> cl1 = classificationRepository.findByUserId(request.getUserId());
+        return cl1.stream()
                 .map(classification -> modelMapper.map(classification, ClassificationResponse.class))
                 .collect(Collectors.toList());
     }
+
+    public boolean deleteItem(Integer id) {
+        if (classificationRepository.existsById(id)) {
+            classificationRepository.deleteById(id);
+            return !classificationRepository.existsById(id);
+        } else {
+            return false;
+        }
+    }
 }
+
+
